@@ -6,6 +6,8 @@
 sofort eine weitere Runde starten wollen. Jede Designentscheidung – Mechanik, UI,
 Progression und Balancing – ordnet sich diesem Prinzip unter.
 
+**▶️ [Jetzt spielen](https://altibo.github.io/OneMoreRun/)** — direkt im Browser, ohne Installation.
+
 ---
 
 ## Features (v0.1)
@@ -49,6 +51,18 @@ npm run build
 # Production Build lokal testen
 npm run preview
 ```
+
+---
+
+## Deployment
+
+Das Spiel wird automatisch via GitHub Actions auf **GitHub Pages** veröffentlicht:
+Jeder Push auf `main` baut das Projekt und deployt `dist/` nach
+**[altibo.github.io/OneMoreRun](https://altibo.github.io/OneMoreRun/)**.
+
+Der Workflow liegt in [.github/workflows/deploy.yml](.github/workflows/deploy.yml).
+Voraussetzung (einmalig): In den Repo-Einstellungen unter
+**Settings → Pages → Build and deployment → Source** den Wert **GitHub Actions** wählen.
 
 ---
 
