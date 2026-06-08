@@ -4,7 +4,7 @@ import { AudioManager } from '../managers/AudioManager';
 import { EventBus, GameEvents } from '../managers/EventBus';
 import { Enemy } from '../entities/Enemy';
 import { Pickup, type PickupKind } from '../entities/Pickup';
-import { Player } from '../entities/Player';
+import { Player, TEX } from '../entities/Player';
 import { Projectile } from '../entities/Projectile';
 import type { LevelingSystem } from './LevelingSystem';
 import type { PlayerStats } from '../types';
@@ -31,6 +31,14 @@ export class CombatSystem {
   private fireAuraTimer = 0;
   private shieldTimer = EFFECTS.shieldCooldownMs;
   private shieldActiveUntil = 0;
+  private poisonTrailTimer = 0;
+  private spikeTickTimer = 0;
+  private spikeContainer?: Phaser.GameObjects.Container;
+  private trailPuddles: {
+    sprite: Phaser.GameObjects.Image;
+    expireAt: number;
+    nextTick: number;
+  }[] = [];
 
   constructor(private ctx: CombatContext) {}
 
@@ -46,6 +54,8 @@ export class CombatSystem {
     this.tickPoison(time, deltaMs);
     this.tickFireAura(deltaMs, time);
     this.tickShield(deltaMs, time);
+    this.tickPoisonTrail(deltaMs, time);
+    this.tickSpikes(deltaMs, time);
   }
 
   // --- Overlap-Handler ----------------------------------------------------
@@ -197,6 +207,99 @@ export class CombatSystem {
       }
       return true;
     });
+  }
+
+  /** Hinterlässt giftige Pfützen, die Gegner beim Durchlaufen schädigen. */
+  private tickPoisonTrail(deltaMs: number, time: number): void {
+    if (this.ctx.stats.poisonTrail) {
+      this.poisonTrailTimer -= deltaMs;
+      if (this.poisonTrailTimer <= 0) {
+        this.poisonTrailTimer = EFFECTS.poisonTrailDropMs;
+        this.dropPoisonPuddle(time);
+      }
+    }
+    for (let i = this.trailPuddles.length - 1; i >= 0; i--) {
+      const p = this.trailPuddles[i];
+      if (time >= p.expireAt) {
+        p.sprite.destroy();
+        this.trailPuddles.splice(i, 1);
+        continue;
+      }
+      if (time >= p.nextTick) {
+        p.nextTick = time + EFFECTS.poisonTrailTickMs;
+        const dmg =
+          (EFFECTS.poisonTrailDps *
+            this.ctx.stats.poisonTrailDpsMult *
+            EFFECTS.poisonTrailTickMs) /
+          1000;
+        this.forEachEnemyInRange(p.sprite.x, p.sprite.y, EFFECTS.poisonTrailRadius, (enemy) => {
+          if (enemy.damage(dmg, false)) this.killEnemy(enemy);
+        });
+      }
+    }
+  }
+
+  private dropPoisonPuddle(time: number): void {
+    const p = this.ctx.player;
+    const sprite = this.ctx.scene.add
+      .image(p.x, p.y, TEX.disc)
+      .setTint(COLORS.poison)
+      .setAlpha(0.32)
+      .setDepth(15);
+    sprite.setDisplaySize(EFFECTS.poisonTrailRadius * 2, EFFECTS.poisonTrailRadius * 2);
+    this.ctx.scene.tweens.add({
+      targets: sprite,
+      alpha: 0.1,
+      duration: EFFECTS.poisonTrailDurationMs,
+    });
+    this.trailPuddles.push({
+      sprite,
+      expireAt: time + EFFECTS.poisonTrailDurationMs,
+      nextTick: time + EFFECTS.poisonTrailTickMs,
+    });
+  }
+
+  /** Rotierender Stachelschild: trifft alle Gegner im Radius periodisch. */
+  private tickSpikes(deltaMs: number, _time: number): void {
+    if (!this.ctx.stats.spikeShield) {
+      this.spikeContainer?.setVisible(false);
+      return;
+    }
+    const p = this.ctx.player;
+    if (!this.spikeContainer) {
+      this.spikeContainer = this.createSpikeVisual();
+    }
+    const c = this.spikeContainer;
+    c.setVisible(true);
+    c.setPosition(p.x, p.y);
+    c.rotation += (EFFECTS.spikeRotateSpeed * deltaMs) / 1000;
+
+    this.spikeTickTimer -= deltaMs;
+    if (this.spikeTickTimer > 0) return;
+    this.spikeTickTimer = EFFECTS.spikeTickMs;
+    const dmg =
+      (EFFECTS.spikeDps * this.ctx.stats.spikeDpsMult * EFFECTS.spikeTickMs) / 1000;
+    this.forEachEnemyInRange(p.x, p.y, EFFECTS.spikeRadius, (enemy) => {
+      // flash=true + kleiner Funke -> sichtbares Treffer-Feedback.
+      const dead = enemy.damage(dmg, true);
+      this.ctx.burst(enemy.x, enemy.y, COLORS.spike, 2);
+      if (dead) this.killEnemy(enemy);
+    });
+  }
+
+  private createSpikeVisual(): Phaser.GameObjects.Container {
+    const scene = this.ctx.scene;
+    const c = scene.add.container(this.ctx.player.x, this.ctx.player.y).setDepth(48);
+    for (let i = 0; i < EFFECTS.spikeCount; i++) {
+      const a = (i / EFFECTS.spikeCount) * Math.PI * 2;
+      const spike = scene.add
+        .image(Math.cos(a) * EFFECTS.spikeRadius, Math.sin(a) * EFFECTS.spikeRadius, TEX.spike)
+        .setTint(COLORS.spike);
+      spike.setDisplaySize(22, 22);
+      spike.rotation = a + Math.PI / 2; // Spitze nach außen
+      c.add(spike);
+    }
+    return c;
   }
 
   private tickProjectiles(time: number): void {

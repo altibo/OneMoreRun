@@ -69,4 +69,15 @@ export const SYNERGIES: readonly SynergyDef[] = [
       s.damage *= 1.15;
     },
   },
+  {
+    id: 'burning_thorns',
+    name: 'Burning Thorns',
+    desc: 'Spike + Fire: Glühende Stacheln verbrennen Gegner.',
+    requiresTags: ['spike', 'fire'],
+    apply: (s) => {
+      s.spikeShield = true;
+      s.spikeDpsMult += 0.6;
+      s.fireAura = true;
+    },
+  },
 ] as const;

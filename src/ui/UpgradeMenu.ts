@@ -9,127 +9,157 @@ const RARITY_COLOR: Record<Rarity, number> = {
   epic: 0xffb14b,
 };
 
-/** Level-Up Upgrade-Auswahl: drei große Karten, eine Entscheidung. */
+/** Sperrzeit nach dem Öffnen, damit ein gehaltener Steuer-Pointer nicht sofort wählt. */
+const INPUT_GRACE_MS = 320;
+
+const CARD_W = 240;
+const CARD_H = 260;
+const CARD_GAP = 28;
+
+/**
+ * Level-Up Upgrade-Auswahl: drei große Karten, eine Entscheidung.
+ *
+ * Wichtig gegen Fehlklicks/Versatz:
+ * - Keine verschachtelten Container (nested Container-Hitboxen sind versetzt) —
+ *   die Hit-Area sitzt direkt auf dem Karten-Rechteck.
+ * - Eine Karte wird nur ausgewählt, wenn pointerdown UND pointerup auf derselben
+ *   Karte stattfinden ("arming"). Ein bereits gehaltener Bewegungs-Pointer löst
+ *   kein neues pointerdown aus und kann daher nicht versehentlich wählen.
+ * - Zusätzliche Sperrzeit (INPUT_GRACE_MS) direkt nach dem Öffnen.
+ */
 export class UpgradeMenu {
-  private container: Phaser.GameObjects.Container;
+  private scene: Phaser.Scene;
+  private objects: Phaser.GameObjects.GameObject[] = [];
+  private armed: Phaser.GameObjects.Rectangle | null = null;
+  private readyAt: number;
+  private done = false;
 
   constructor(
     scene: Phaser.Scene,
     choices: UpgradeDef[],
     onChoose: (id: string) => void,
   ) {
-    this.container = scene.add.container(0, 0).setScrollFactor(0).setDepth(1500);
+    this.scene = scene;
+    this.readyAt = scene.time.now + INPUT_GRACE_MS;
 
     const overlay = scene.add
       .rectangle(0, 0, VIEW.width, VIEW.height, 0x05060a, 0.78)
       .setOrigin(0, 0)
+      .setDepth(1500)
       .setInteractive();
-    const title = scene.add
-      .text(VIEW.width / 2, 70, 'LEVEL UP', {
-        fontFamily: 'system-ui',
-        fontSize: '36px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5);
-    const subtitle = scene.add
-      .text(VIEW.width / 2, 108, 'Wähle ein Upgrade', {
-        fontFamily: 'system-ui',
-        fontSize: '15px',
-        color: '#9fb0c0',
-      })
-      .setOrigin(0.5);
-    this.container.add([overlay, title, subtitle]);
+    // Klick neben die Karten entwaffnet eine evtl. vorgemerkte Karte.
+    overlay.on('pointerdown', () => (this.armed = null));
+    this.objects.push(overlay);
 
-    const cardW = 240;
-    const cardH = 260;
-    const gap = 28;
-    const totalW = choices.length * cardW + (choices.length - 1) * gap;
-    const startX = (VIEW.width - totalW) / 2 + cardW / 2;
+    this.addText(VIEW.width / 2, 70, 'LEVEL UP', 36, '#ffffff', true);
+    this.addText(VIEW.width / 2, 108, 'Wähle ein Upgrade', 15, '#9fb0c0');
+
+    const totalW = choices.length * CARD_W + (choices.length - 1) * CARD_GAP;
+    const startX = (VIEW.width - totalW) / 2 + CARD_W / 2;
     const cy = VIEW.height / 2 + 30;
 
     choices.forEach((def, i) => {
-      const cx = startX + i * (cardW + gap);
-      const card = this.buildCard(scene, def, cardW, cardH, () => {
-        AudioManager.play('levelup');
-        onChoose(def.id);
-        this.destroy();
-      });
-      card.setPosition(cx, cy);
-      this.container.add(card);
-
-      // Kleine Einflug-Animation für Lebendigkeit.
-      card.setScale(0.6);
-      card.setAlpha(0);
-      scene.tweens.add({
-        targets: card,
-        scale: 1,
-        alpha: 1,
-        delay: i * 60,
-        duration: 220,
-        ease: 'Back.easeOut',
-      });
+      const cx = startX + i * (CARD_W + CARD_GAP);
+      this.buildCard(def, cx, cy, i, onChoose);
     });
   }
 
   private buildCard(
-    scene: Phaser.Scene,
     def: UpgradeDef,
-    w: number,
-    h: number,
-    onClick: () => void,
-  ): Phaser.GameObjects.Container {
-    const card = scene.add.container(0, 0);
+    cx: number,
+    cy: number,
+    index: number,
+    onChoose: (id: string) => void,
+  ): void {
+    const scene = this.scene;
     const accent = RARITY_COLOR[def.rarity];
+    const depth = 1501;
 
-    const bg = scene.add.rectangle(0, 0, w, h, 0x161620).setStrokeStyle(3, accent);
-    const stripe = scene.add.rectangle(0, -h / 2 + 6, w, 12, accent).setOrigin(0.5);
-    const rarity = scene.add
-      .text(0, -h / 2 + 30, def.rarity.toUpperCase(), {
-        fontFamily: 'system-ui',
-        fontSize: '12px',
-        color: '#9fb0c0',
-      })
-      .setOrigin(0.5);
-    const name = scene.add
-      .text(0, -40, def.name, {
-        fontFamily: 'system-ui',
-        fontSize: '22px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-        align: 'center',
-        wordWrap: { width: w - 30 },
-      })
-      .setOrigin(0.5);
-    const desc = scene.add
-      .text(0, 40, def.desc, {
-        fontFamily: 'system-ui',
-        fontSize: '16px',
-        color: '#c9d4df',
-        align: 'center',
-        wordWrap: { width: w - 30 },
-      })
-      .setOrigin(0.5);
+    const bg = scene.add
+      .rectangle(cx, cy, CARD_W, CARD_H, 0x161620)
+      .setStrokeStyle(3, accent)
+      .setDepth(depth);
+    const stripe = scene.add
+      .rectangle(cx, cy - CARD_H / 2 + 6, CARD_W, 12, accent)
+      .setDepth(depth + 1);
+    const rarity = this.addText(cx, cy - CARD_H / 2 + 30, def.rarity.toUpperCase(), 12, '#9fb0c0');
+    const name = this.addText(cx, cy - 40, def.name, 22, '#ffffff', true);
+    name.setWordWrapWidth(CARD_W - 30);
+    const desc = this.addText(cx, cy + 40, def.desc, 16, '#c9d4df');
+    desc.setWordWrapWidth(CARD_W - 30);
 
-    card.add([bg, stripe, rarity, name, desc]);
-    card.setSize(w, h);
-    card.setInteractive(
-      new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h),
-      Phaser.Geom.Rectangle.Contains,
-    );
-    card.on('pointerover', () => {
-      bg.setFillStyle(0x1f1f2e);
-      card.setScale(1.04);
+    this.objects.push(bg, stripe, rarity, name, desc);
+
+    const all: (Phaser.GameObjects.Rectangle | Phaser.GameObjects.Text)[] = [
+      bg,
+      stripe,
+      rarity,
+      name,
+      desc,
+    ];
+    const setScaleAll = (s: number) => all.forEach((o) => o.setScale(s));
+    const setHover = (on: boolean) => {
+      bg.setFillStyle(on ? 0x1f1f2e : 0x161620);
+      setScaleAll(on ? 1.04 : 1);
+    };
+
+    bg.setInteractive({ useHandCursor: true });
+    bg.on('pointerover', () => setHover(true));
+    bg.on('pointerout', () => {
+      setHover(false);
+      if (this.armed === bg) this.armed = null;
     });
-    card.on('pointerout', () => {
-      bg.setFillStyle(0x161620);
-      card.setScale(1);
+    bg.on('pointerdown', () => {
+      if (scene.time.now < this.readyAt) return;
+      this.armed = bg;
+      setScaleAll(0.98);
     });
-    card.on('pointerup', onClick);
-    return card;
+    bg.on('pointerup', () => {
+      if (this.done || scene.time.now < this.readyAt) return;
+      if (this.armed !== bg) return; // nur wählen, wenn auf dieser Karte "geladen"
+      this.done = true;
+      AudioManager.play('levelup');
+      onChoose(def.id);
+      this.destroy();
+    });
+
+    // Einflug-Animation (rein visuell; Auswahl ist bis readyAt ohnehin gesperrt).
+    all.forEach((o) => o.setAlpha(0));
+    bg.setScale(0.6);
+    scene.tweens.add({ targets: all, alpha: 1, delay: index * 60, duration: 200 });
+    scene.tweens.add({
+      targets: all,
+      scale: 1,
+      delay: index * 60,
+      duration: 220,
+      ease: 'Back.easeOut',
+    });
+  }
+
+  private addText(
+    x: number,
+    y: number,
+    text: string,
+    size: number,
+    color: string,
+    bold = false,
+  ): Phaser.GameObjects.Text {
+    const t = this.scene.add
+      .text(x, y, text, {
+        fontFamily: 'system-ui',
+        fontSize: `${size}px`,
+        color,
+        fontStyle: bold ? 'bold' : 'normal',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(1502);
+    this.objects.push(t);
+    return t;
   }
 
   destroy(): void {
-    this.container.destroy();
+    this.objects.forEach((o) => o.destroy());
+    this.objects = [];
   }
 }

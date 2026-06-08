@@ -7,7 +7,14 @@ export const TEX = {
   disc: 'disc',
   ring: 'ring',
   spark: 'spark',
+  gem: 'gem',
+  coin: 'coin',
+  bullet: 'bullet',
+  spike: 'spike',
 } as const;
+
+/** Visuelle Skalierung der fauna-Sprites (Quelle 32x32 px). */
+const PLAYER_SCALE = 1.5;
 
 /** Der vom Spieler gesteuerte Charakter. Auto-Attack erfolgt im WeaponSystem. */
 export class Player extends Phaser.Physics.Arcade.Sprite {
@@ -16,16 +23,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private regenCarry = 0;
   shieldActive = false;
   private shieldRing?: Phaser.GameObjects.Arc;
+  private facing: 'down' | 'side' | 'up' = 'down';
 
   constructor(scene: Phaser.Scene, x: number, y: number, stats: PlayerStats) {
-    super(scene, x, y, TEX.disc);
+    super(scene, x, y, 'fauna', 'walk-down-3.png');
     this.stats = stats;
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
-    this.setTint(COLORS.player);
-    this.setCircleBody(PLAYER_BASE.radius);
+    this.setScale(PLAYER_SCALE);
+    this.setBoxBody(PLAYER_BASE.radius);
     this.setDepth(50);
+    this.anims.play('player-idle-down');
     (this.body as Phaser.Physics.Arcade.Body).setCollideWorldBounds(true);
 
     this.shieldRing = scene.add
@@ -35,13 +44,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       .setVisible(false);
   }
 
-  private setCircleBody(radius: number): void {
+  private setBoxBody(radius: number): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
-    const texSize = 64; // 'disc' Textur ist 64x64
-    this.setDisplaySize(radius * 2, radius * 2);
-    const scale = texSize / (radius * 2);
-    body.setCircle(radius * scale, 0, 0);
+    // Body in Quell-Pixeln, damit er nach der Skalierung ~2*radius misst.
+    const src = (radius * 2) / PLAYER_SCALE;
+    body.setSize(src, src, true);
   }
+
 
   move(dir: Phaser.Math.Vector2): void {
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -60,7 +69,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.shieldRing) {
       this.shieldRing.setPosition(this.x, this.y).setVisible(this.shieldActive);
     }
+    this.updateAnimation();
   }
+
+  /** Wählt Lauf-/Idle-Animation und Blickrichtung anhand der Geschwindigkeit. */
+  private updateAnimation(): void {
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    const vx = body.velocity.x;
+    const vy = body.velocity.y;
+    const moving = Math.abs(vx) > 5 || Math.abs(vy) > 5;
+
+    if (moving) {
+      if (Math.abs(vx) >= Math.abs(vy)) {
+        this.facing = 'side';
+        this.setFlipX(vx < 0);
+      } else {
+        this.facing = vy < 0 ? 'up' : 'down';
+        this.setFlipX(false);
+      }
+      this.anims.play(`player-run-${this.facing}`, true);
+    } else {
+      this.anims.play(`player-idle-${this.facing}`, true);
+    }
+  }
+
 
   isInvulnerable(time: number): boolean {
     return this.shieldActive || time < this.invulnUntil;

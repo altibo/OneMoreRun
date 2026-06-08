@@ -29,6 +29,7 @@ export const COLORS = {
   shield: 0x6ad0ff,
   fire: 0xff7b3b,
   poison: 0x7bff6a,
+  spike: 0xcfd8e3,
   text: 0xffffff,
 } as const;
 
@@ -90,6 +91,18 @@ export const EFFECTS = {
   lifestealPerKill: 2,
   shieldCooldownMs: 9000,
   armorReductionPerStack: 0.06,
+  // Gift-Spur, die der Spieler hinter sich herzieht.
+  poisonTrailDropMs: 220,
+  poisonTrailRadius: 34,
+  poisonTrailDps: 18,
+  poisonTrailDurationMs: 1400,
+  poisonTrailTickMs: 200,
+  // Rotierender Stachelschild um den Spieler.
+  spikeRadius: 74,
+  spikeDps: 30,
+  spikeTickMs: 350,
+  spikeCount: 8,
+  spikeRotateSpeed: 2.2, // rad/s
 } as const;
 
 export const RUN = {

@@ -19,6 +19,8 @@ const config: Phaser.Types.Core.GameConfig = {
     autoCenter: Phaser.Scale.CENTER_BOTH,
     width: VIEW.width,
     height: VIEW.height,
+    expandParent: true,
+    autoRound: true,
   },
   physics: {
     default: 'arcade',
@@ -44,4 +46,30 @@ const config: Phaser.Types.Core.GameConfig = {
   ],
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+
+/**
+ * Auf Touch-Geräten (Handy/Tablet) beim ersten Tipp echtes Vollbild anfordern,
+ * damit die Browser-Adressleiste verschwindet und das Spiel den ganzen Schirm
+ * füllt. Die Fullscreen-API verlangt eine Nutzer-Geste, daher der Listener.
+ */
+function enableMobileFullscreen(): void {
+  const isTouch =
+    'ontouchstart' in window || (navigator.maxTouchPoints ?? 0) > 0;
+  if (!isTouch) return;
+
+  const tryFullscreen = (): void => {
+    try {
+      if (!game.scale.isFullscreen) {
+        game.scale.startFullscreen();
+      }
+    } catch {
+      /* Vom Browser blockiert – ignorieren. */
+    }
+  };
+
+  window.addEventListener('pointerdown', tryFullscreen, { once: true });
+  window.addEventListener('touchend', tryFullscreen, { once: true });
+}
+
+enableMobileFullscreen();

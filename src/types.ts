@@ -31,6 +31,8 @@ export interface PlayerStats {
   fireAura: boolean;
   chain: boolean;
   shield: boolean;
+  poisonTrail: boolean;
+  spikeShield: boolean;
 
   // Synergie-Verstärkungen
   poisonDpsMult: number;
@@ -38,6 +40,8 @@ export interface PlayerStats {
   explosionDamageMult: number;
   fireAuraDpsMult: number;
   chainJumpsBonus: number;
+  poisonTrailDpsMult: number;
+  spikeDpsMult: number;
 
   // Meta
   xpBonus: number; // Multiplikator, 1 = normal

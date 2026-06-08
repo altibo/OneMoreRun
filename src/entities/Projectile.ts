@@ -26,7 +26,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.pierceLeft = opts.pierce;
     this.dieAt = opts.time + opts.lifetimeMs;
 
-    this.setTexture(TEX.disc);
+    this.setTexture(TEX.bullet);
     this.setTint(opts.isCrit ? COLORS.coin : COLORS.projectile);
     this.setActive(true).setVisible(true);
     this.setDepth(45);

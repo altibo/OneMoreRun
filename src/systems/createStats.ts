@@ -30,12 +30,16 @@ export function createInitialStats(): PlayerStats {
     fireAura: false,
     chain: false,
     shield: false,
+    poisonTrail: false,
+    spikeShield: false,
 
     poisonDpsMult: 1,
     explosionRadiusMult: 1,
     explosionDamageMult: 1,
     fireAuraDpsMult: 1,
     chainJumpsBonus: 0,
+    poisonTrailDpsMult: 1,
+    spikeDpsMult: 1,
 
     xpBonus: 1,
     luck: 0,

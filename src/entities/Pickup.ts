@@ -15,7 +15,7 @@ export class Pickup extends Phaser.Physics.Arcade.Sprite {
     this.value = value;
     this.magnetized = false;
 
-    this.setTexture(TEX.disc);
+    this.setTexture(kind === 'xp' ? TEX.gem : TEX.coin);
     this.setTint(kind === 'xp' ? COLORS.xp : COLORS.coin);
     this.setActive(true).setVisible(true);
     this.setDepth(20);

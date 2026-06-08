@@ -212,6 +212,30 @@ export const UPGRADES: readonly UpgradeDef[] = [
       s.chainJumpsBonus += 1;
     },
   },
+  {
+    id: 'poison_trail',
+    name: 'Toxic Trail',
+    desc: 'Leave a poison trail behind you',
+    rarity: 'epic',
+    maxStacks: 3,
+    tags: ['poison'],
+    apply: (s) => {
+      s.poisonTrail = true;
+      s.poisonTrailDpsMult += 0.5;
+    },
+  },
+  {
+    id: 'spike_shield',
+    name: 'Spike Shield',
+    desc: 'Orbiting spikes shred nearby foes',
+    rarity: 'epic',
+    maxStacks: 3,
+    tags: ['defense', 'spike'],
+    apply: (s) => {
+      s.spikeShield = true;
+      s.spikeDpsMult += 0.5;
+    },
+  },
 ] as const;
 
 export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(

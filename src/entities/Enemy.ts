@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { COLORS } from '../config/balance';
-import { TEX } from './Player';
 
 export interface EnemySpawnConfig {
   hp: number;
@@ -24,6 +23,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private poisonUntil = 0;
   private poisonDps = 0;
   private poisonCarry = 0;
+  private baseColor = 0xffffff;
   private bossBarBg?: Phaser.GameObjects.Rectangle;
   private bossBar?: Phaser.GameObjects.Rectangle;
 
@@ -38,18 +38,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.poisonDps = 0;
     this.poisonCarry = 0;
 
-    this.setTexture(TEX.disc);
+    this.baseColor = cfg.color;
+    this.setTexture('lizard', 'lizard_m_idle_anim_f0.png');
     this.setTint(cfg.color);
+    this.anims.play('enemy-run', true);
     this.setActive(true).setVisible(true);
     this.setAlpha(1);
     this.setDepth(cfg.isBoss ? 40 : 30);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.enable = true;
-    const texSize = 64;
-    this.setDisplaySize(cfg.radius * 2, cfg.radius * 2);
-    const scale = texSize / (cfg.radius * 2);
-    body.setCircle(cfg.radius * scale, 0, 0);
+    // lizard-Quellframe ist 16 px breit -> auf Wunschdurchmesser skalieren.
+    const srcW = 16;
+    const scale = (cfg.radius * 2) / srcW;
+    this.setScale(scale);
+    body.setSize(srcW, srcW, true);
+
 
     if (cfg.isBoss) {
       this.createBossBar();
@@ -60,6 +64,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const angle = Math.atan2(py - this.y, px - this.x);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(Math.cos(angle) * this.speed, Math.sin(angle) * this.speed);
+    // Blickrichtung anhand der Horizontalbewegung spiegeln.
+    if (Math.abs(body.velocity.x) > 2) this.setFlipX(body.velocity.x < 0);
   }
 
   tickPoison(time: number, deltaMs: number): boolean {
@@ -79,7 +85,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.poisonUntil = time + durationMs;
     this.setTint(COLORS.poison);
     this.scene.time.delayedCall(120, () => {
-      if (this.active) this.clearTint();
+      if (this.active) this.setTint(this.baseColor);
     });
   }
 
@@ -89,7 +95,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (flash && this.active) {
       this.setTintFill(0xffffff);
       this.scene.time.delayedCall(50, () => {
-        if (this.active) this.clearTint();
+        if (this.active) this.setTint(this.baseColor);
       });
     }
     this.updateBossBar();
