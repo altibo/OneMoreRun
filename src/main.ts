@@ -5,6 +5,7 @@ import { PreloadScene } from './scenes/PreloadScene';
 import { MenuScene } from './scenes/MenuScene';
 import { GameScene } from './scenes/GameScene';
 import { LevelUpScene } from './scenes/LevelUpScene';
+import { PauseScene } from './scenes/PauseScene';
 import { EndScene } from './scenes/EndScene';
 import { UpgradesScene } from './scenes/UpgradesScene';
 import { CollectionScene } from './scenes/CollectionScene';
@@ -39,6 +40,7 @@ const config: Phaser.Types.Core.GameConfig = {
     MenuScene,
     GameScene,
     LevelUpScene,
+    PauseScene,
     EndScene,
     UpgradesScene,
     CollectionScene,

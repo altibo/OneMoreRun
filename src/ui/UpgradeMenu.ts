@@ -52,7 +52,7 @@ export class UpgradeMenu {
     this.objects.push(overlay);
 
     this.addText(VIEW.width / 2, 70, 'LEVEL UP', 36, '#ffffff', true);
-    this.addText(VIEW.width / 2, 108, 'Wähle ein Upgrade', 15, '#9fb0c0');
+    this.addText(VIEW.width / 2, 108, 'Choose an upgrade', 15, '#9fb0c0');
 
     const totalW = choices.length * CARD_W + (choices.length - 1) * CARD_GAP;
     const startX = (VIEW.width - totalW) / 2 + CARD_W / 2;

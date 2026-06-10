@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
-import { WEAPON_BASE } from '../config/balance';
+import { EFFECTS, WEAPON_BASE } from '../config/balance';
 import { AudioManager } from '../managers/AudioManager';
 import type { Projectile } from '../entities/Projectile';
 import type { Enemy } from '../entities/Enemy';
 import type { PlayerStats } from '../types';
 
-/** Automatische Angriffe. Zielt auf den nächsten Gegner, feuert Salven. */
+/** Auto attacks. Targets the nearest enemy and fires volleys. */
 export class WeaponSystem {
   private fireTimer = 0;
 
@@ -42,7 +42,12 @@ export class WeaponSystem {
     const proj = this.group.get() as Projectile | null;
     if (!proj) return;
     const isCrit = this.rng.frac() < this.stats.critChance;
-    const damage = isCrit ? this.stats.damage * this.stats.critMultiplier : this.stats.damage;
+    let damage = isCrit ? this.stats.damage * this.stats.critMultiplier : this.stats.damage;
+    // Berserker: the lower the HP, the bigger the damage bonus.
+    if (this.stats.berserk) {
+      const missing = 1 - Phaser.Math.Clamp(this.stats.hp / this.stats.maxHp, 0, 1);
+      damage *= 1 + EFFECTS.berserkMaxBonus * this.stats.berserkMult * missing;
+    }
     proj.fire({
       x,
       y,

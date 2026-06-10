@@ -32,6 +32,8 @@ export function createInitialStats(): PlayerStats {
     shield: false,
     poisonTrail: false,
     spikeShield: false,
+    slow: false,
+    berserk: false,
 
     poisonDpsMult: 1,
     explosionRadiusMult: 1,
@@ -40,6 +42,8 @@ export function createInitialStats(): PlayerStats {
     chainJumpsBonus: 0,
     poisonTrailDpsMult: 1,
     spikeDpsMult: 1,
+    slowMult: 1,
+    berserkMult: 1,
 
     xpBonus: 1,
     luck: 0,

@@ -11,7 +11,7 @@ interface EndData {
   victory: boolean;
 }
 
-/** Kein "Game Over" — RUN COMPLETE mit Fokus auf Motivation & PLAY AGAIN. */
+/** Clear outcome screen: VICTORY when the boss is beaten, GAME OVER on death. */
 export class EndScene extends Phaser.Scene {
   constructor() {
     super('End');
@@ -20,16 +20,24 @@ export class EndScene extends Phaser.Scene {
   create(data: EndData): void {
     const { result, victory } = data;
     this.cameras.main.setBackgroundColor(COLORS.background);
+    if (!victory) this.cameras.main.flash(400, 90, 0, 0);
 
     const newAchievements = this.evaluateAchievements(result);
 
     const cx = VIEW.width / 2;
     this.add
-      .text(cx, 60, victory ? 'BOSS DEFEATED' : 'RUN COMPLETE', {
+      .text(cx, 56, victory ? 'VICTORY!' : 'YOU DIED', {
         fontFamily: 'system-ui',
-        fontSize: '44px',
-        color: victory ? '#ffd166' : '#46e8a0',
+        fontSize: '52px',
+        color: victory ? '#ffd166' : '#ff4b5c',
         fontStyle: 'bold',
+      })
+      .setOrigin(0.5);
+    this.add
+      .text(cx, 98, victory ? 'You defeated the boss!' : "You didn't make it this time.", {
+        fontFamily: 'system-ui',
+        fontSize: '16px',
+        color: victory ? '#9fb0c0' : '#ff8a93',
       })
       .setOrigin(0.5);
 
@@ -42,7 +50,7 @@ export class EndScene extends Phaser.Scene {
       `Level reached      ${result.level}`,
     ];
     this.add
-      .text(cx, 150, lines.join('\n'), {
+      .text(cx, 158, lines.join('\n'), {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#c9d4df',

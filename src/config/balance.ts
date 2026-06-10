@@ -29,6 +29,7 @@ export const COLORS = {
   shield: 0x6ad0ff,
   fire: 0xff7b3b,
   poison: 0x7bff6a,
+  frost: 0x7be0ff,
   spike: 0xcfd8e3,
   text: 0xffffff,
 } as const;
@@ -103,6 +104,11 @@ export const EFFECTS = {
   spikeTickMs: 350,
   spikeCount: 8,
   spikeRotateSpeed: 2.2, // rad/s
+  // Frost: hits chill enemies, slowing their movement.
+  slowFactor: 0.55, // base slowed speed (55%); stronger with slowMult
+  slowDurationMs: 1400,
+  // Berserker: bonus damage scales with missing HP.
+  berserkMaxBonus: 1.0, // up to +100% damage at 0 HP (x berserkMult)
 } as const;
 
 export const RUN = {

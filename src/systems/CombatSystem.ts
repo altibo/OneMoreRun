@@ -34,6 +34,7 @@ export class CombatSystem {
   private poisonTrailTimer = 0;
   private spikeTickTimer = 0;
   private spikeContainer?: Phaser.GameObjects.Container;
+  private fireAuraVisual?: Phaser.GameObjects.Arc;
   private trailPuddles: {
     sprite: Phaser.GameObjects.Image;
     expireAt: number;
@@ -105,12 +106,7 @@ export class CombatSystem {
 
   private damageEnemy(enemy: Enemy, amount: number, isCrit: boolean): void {
     const dead = enemy.damage(amount);
-    this.ctx.floatingText(
-      enemy.x,
-      enemy.y - 12,
-      `${Math.round(amount)}`,
-      isCrit ? COLORS.coin : COLORS.text,
-    );
+    this.showDamage(enemy.x, enemy.y - 12, amount, isCrit);
     AudioManager.play('hit');
     if (this.ctx.stats.poison) {
       enemy.applyPoison(
@@ -119,7 +115,39 @@ export class CombatSystem {
         this.ctx.scene.time.now,
       );
     }
+    if (this.ctx.stats.slow) {
+      const factor = Phaser.Math.Clamp(EFFECTS.slowFactor / this.ctx.stats.slowMult, 0.2, 0.95);
+      enemy.applySlow(factor, EFFECTS.slowDurationMs, this.ctx.scene.time.now);
+      enemy.setTint(COLORS.frost);
+      this.ctx.scene.time.delayedCall(140, () => {
+        if (enemy.active) enemy.restoreTint();
+      });
+    }
     if (dead) this.killEnemy(enemy);
+  }
+
+  /** Floating damage number; crits pop bigger and gold. */
+  private showDamage(x: number, y: number, amount: number, isCrit: boolean): void {
+    const label = this.ctx.scene.add
+      .text(x, y, `${Math.round(amount)}`, {
+        fontFamily: 'system-ui',
+        fontSize: isCrit ? '22px' : '15px',
+        color: isCrit ? '#ffd166' : '#ffffff',
+        fontStyle: isCrit ? 'bold' : 'normal',
+        stroke: '#000000',
+        strokeThickness: isCrit ? 4 : 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(72);
+    this.ctx.scene.tweens.add({
+      targets: label,
+      y: y - (isCrit ? 36 : 26),
+      alpha: 0,
+      scale: isCrit ? 1.3 : 1,
+      duration: isCrit ? 620 : 480,
+      ease: 'Quad.easeOut',
+      onComplete: () => label.destroy(),
+    });
   }
 
   private killEnemy(enemy: Enemy): void {
@@ -172,15 +200,31 @@ export class CombatSystem {
   }
 
   private tickFireAura(deltaMs: number, _time: number): void {
-    if (!this.ctx.stats.fireAura) return;
+    if (!this.ctx.stats.fireAura) {
+      this.fireAuraVisual?.setVisible(false);
+      return;
+    }
+    const p = this.ctx.player;
+    if (!this.fireAuraVisual) {
+      this.fireAuraVisual = this.ctx.scene.add
+        .circle(p.x, p.y, EFFECTS.fireAuraRadius, COLORS.fire, 0.12)
+        .setStrokeStyle(3, COLORS.fire, 0.5)
+        .setDepth(14);
+    }
+    const aura = this.fireAuraVisual;
+    aura.setVisible(true).setPosition(p.x, p.y);
+    // Gentle flicker so the burning aura is clearly visible.
+    aura.setScale(1 + Math.sin(this.ctx.scene.time.now / 120) * 0.04);
+
     this.fireAuraTimer -= deltaMs;
     if (this.fireAuraTimer > 0) return;
     this.fireAuraTimer = EFFECTS.fireAuraTickMs;
     const dmg =
       ((EFFECTS.fireAuraDps * this.ctx.stats.fireAuraDpsMult) * EFFECTS.fireAuraTickMs) / 1000;
-    const p = this.ctx.player;
     this.forEachEnemyInRange(p.x, p.y, EFFECTS.fireAuraRadius, (enemy) => {
-      if (enemy.damage(dmg, false)) this.killEnemy(enemy);
+      const dead = enemy.damage(dmg, false);
+      this.ctx.burst(enemy.x, enemy.y, COLORS.fire, 2);
+      if (dead) this.killEnemy(enemy);
     });
   }
 

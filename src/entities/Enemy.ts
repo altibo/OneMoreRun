@@ -23,6 +23,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private poisonUntil = 0;
   private poisonDps = 0;
   private poisonCarry = 0;
+  private slowUntil = 0;
+  private slowFactor = 1;
   private baseColor = 0xffffff;
   private bossBarBg?: Phaser.GameObjects.Rectangle;
   private bossBar?: Phaser.GameObjects.Rectangle;
@@ -37,6 +39,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.poisonUntil = 0;
     this.poisonDps = 0;
     this.poisonCarry = 0;
+    this.slowUntil = 0;
+    this.slowFactor = 1;
 
     this.baseColor = cfg.color;
     this.setTexture('lizard', 'lizard_m_idle_anim_f0.png');
@@ -63,9 +67,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   trackToward(px: number, py: number): void {
     const angle = Math.atan2(py - this.y, px - this.x);
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(Math.cos(angle) * this.speed, Math.sin(angle) * this.speed);
-    // Blickrichtung anhand der Horizontalbewegung spiegeln.
+    const mult = this.scene.time.now < this.slowUntil ? this.slowFactor : 1;
+    body.setVelocity(Math.cos(angle) * this.speed * mult, Math.sin(angle) * this.speed * mult);
+    // Mirror facing based on horizontal movement.
     if (Math.abs(body.velocity.x) > 2) this.setFlipX(body.velocity.x < 0);
+  }
+
+  /** Chills the enemy: slows movement for a while. factor < 1 (e.g. 0.5). */
+  applySlow(factor: number, durationMs: number, time: number): void {
+    if (time >= this.slowUntil) this.slowFactor = 1; // previous slow expired
+    this.slowFactor = Math.min(this.slowFactor, factor);
+    this.slowUntil = time + durationMs;
+  }
+
+  /** Restores the enemy's base tint (after a flash/chill effect). */
+  restoreTint(): void {
+    if (this.active) this.setTint(this.baseColor);
   }
 
   tickPoison(time: number, deltaMs: number): boolean {

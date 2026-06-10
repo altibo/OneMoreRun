@@ -25,7 +25,7 @@ export interface PlayerStats {
   critMultiplier: number;
   range: number;
 
-  // Effekt-Flags (werden über Tags/Synergien gesetzt)
+  // Effect flags (set via tags / synergies)
   poison: boolean;
   explosion: boolean;
   fireAura: boolean;
@@ -33,8 +33,10 @@ export interface PlayerStats {
   shield: boolean;
   poisonTrail: boolean;
   spikeShield: boolean;
+  slow: boolean;
+  berserk: boolean;
 
-  // Synergie-Verstärkungen
+  // Synergy amplifiers
   poisonDpsMult: number;
   explosionRadiusMult: number;
   explosionDamageMult: number;
@@ -42,6 +44,8 @@ export interface PlayerStats {
   chainJumpsBonus: number;
   poisonTrailDpsMult: number;
   spikeDpsMult: number;
+  slowMult: number;
+  berserkMult: number;
 
   // Meta
   xpBonus: number; // Multiplikator, 1 = normal

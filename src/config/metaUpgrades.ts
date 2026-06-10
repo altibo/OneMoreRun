@@ -20,7 +20,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'start_hp',
     name: 'Start HP',
-    desc: '+15 Max HP pro Level',
+    desc: '+15 Max HP per level',
     maxLevel: 10,
     baseCost: 30,
     costGrowth: 1.5,
@@ -32,7 +32,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'move_speed',
     name: 'Movement Speed',
-    desc: '+4% Speed pro Level',
+    desc: '+4% Speed per level',
     maxLevel: 8,
     baseCost: 40,
     costGrowth: 1.5,
@@ -41,7 +41,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'xp_bonus',
     name: 'XP Bonus',
-    desc: '+5% XP pro Level',
+    desc: '+5% XP per level',
     maxLevel: 8,
     baseCost: 45,
     costGrowth: 1.5,
@@ -50,7 +50,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'proj_size',
     name: 'Projectile Size',
-    desc: '+6% Größe pro Level',
+    desc: '+6% Size per level',
     maxLevel: 6,
     baseCost: 50,
     costGrowth: 1.55,
@@ -59,7 +59,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'crit_chance',
     name: 'Critical Chance',
-    desc: '+2% Crit pro Level',
+    desc: '+2% Crit per level',
     maxLevel: 8,
     baseCost: 55,
     costGrowth: 1.55,
@@ -68,7 +68,7 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   {
     id: 'luck',
     name: 'Luck',
-    desc: '+1 Luck pro Level',
+    desc: '+1 Luck per level',
     maxLevel: 5,
     baseCost: 70,
     costGrowth: 1.7,

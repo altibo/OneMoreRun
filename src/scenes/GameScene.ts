@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { BOSS, COLORS, PLAYER_BASE, RUN, WORLD } from '../config/balance';
+import { BOSS, COLORS, PLAYER_BASE, RUN, VIEW, WORLD } from '../config/balance';
 import { AudioManager } from '../managers/AudioManager';
 import { EventBus, GameEvents } from '../managers/EventBus';
 import { InputManager } from '../managers/InputManager';
@@ -97,7 +97,10 @@ export class GameScene extends Phaser.Scene {
     });
     this.combat.setup();
 
-    this.hud = new HUD(this);
+    this.hud = new HUD(this, () => this.openPauseMenu());
+
+    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
+    this.input.keyboard?.on('keydown-P', () => this.togglePause());
 
     this.registerEvents();
   }
@@ -169,11 +172,44 @@ export class GameScene extends Phaser.Scene {
   private registerEvents(): void {
     EventBus.on(GameEvents.LevelUp, this.onLevelUp, this);
     EventBus.on(GameEvents.PlayerDied, this.onPlayerDied, this);
+    EventBus.on(GameEvents.SynergyUnlocked, this.onSynergyUnlocked, this);
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       EventBus.off(GameEvents.LevelUp, this.onLevelUp, this);
       EventBus.off(GameEvents.PlayerDied, this.onPlayerDied, this);
+      EventBus.off(GameEvents.SynergyUnlocked, this.onSynergyUnlocked, this);
       this.input2.destroy();
+    });
+  }
+
+  /** Flashy banner when items combine into a special synergy. */
+  private onSynergyUnlocked(data: { name: string }): void {
+    AudioManager.play('rare');
+    this.cameras.main.flash(220, 255, 200, 80);
+    const cx = VIEW.width / 2;
+    const cy = VIEW.height / 2 - 120;
+    const banner = this.add
+      .text(cx, cy, `★ ${data.name} ★`, {
+        fontFamily: 'system-ui',
+        fontSize: '30px',
+        color: '#ffd166',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(950)
+      .setScale(0.4)
+      .setAlpha(0);
+    this.tweens.add({ targets: banner, scale: 1, alpha: 1, duration: 260, ease: 'Back.easeOut' });
+    this.tweens.add({
+      targets: banner,
+      y: cy - 40,
+      alpha: 0,
+      delay: 1100,
+      duration: 600,
+      onComplete: () => banner.destroy(),
     });
   }
 
@@ -211,6 +247,30 @@ export class GameScene extends Phaser.Scene {
     this.physics.resume();
     this.input2.setEnabled(true);
     this.paused = false;
+  }
+
+  private openPauseMenu(): void {
+    if (this.ended || this.paused) return;
+    this.paused = true;
+    this.physics.pause();
+    this.input2.setEnabled(false);
+    this.scene.launch('Pause', {
+      stats: this.stats,
+      level: this.leveling.level,
+      build: this.upgrades.getBuild(),
+      onResume: () => this.resumeFromUpgrade(),
+    });
+  }
+
+  /** Keyboard toggle: opens the pause menu, or closes it if already paused. */
+  private togglePause(): void {
+    if (this.ended) return;
+    if (this.scene.isActive('Pause')) {
+      this.scene.stop('Pause');
+      this.resumeFromUpgrade();
+      return;
+    }
+    this.openPauseMenu();
   }
 
   // --- Run-Status ---------------------------------------------------------

@@ -236,6 +236,55 @@ export const UPGRADES: readonly UpgradeDef[] = [
       s.spikeDpsMult += 0.5;
     },
   },
+  {
+    id: 'frostbite',
+    name: 'Frostbite',
+    desc: 'Hits chill and slow enemies',
+    rarity: 'epic',
+    maxStacks: 3,
+    tags: ['frost'],
+    apply: (s) => {
+      s.slow = true;
+      s.slowMult += 0.5;
+    },
+  },
+  {
+    id: 'berserk',
+    name: 'Berserker',
+    desc: 'The lower your HP, the more damage you deal',
+    rarity: 'epic',
+    maxStacks: 3,
+    tags: ['offense', 'rage'],
+    apply: (s) => {
+      s.berserk = true;
+      s.berserkMult += 0.5;
+    },
+  },
+  {
+    id: 'overcharge',
+    name: 'Overcharge',
+    desc: '+15% Damage & +10% Attack Speed',
+    rarity: 'rare',
+    maxStacks: 5,
+    tags: ['offense'],
+    apply: (s) => {
+      s.damage *= 1.15;
+      s.attacksPerSec *= 1.1;
+    },
+  },
+  {
+    id: 'glass_cannon',
+    name: 'Glass Cannon',
+    desc: '+45% Damage, but -15 Max HP',
+    rarity: 'epic',
+    maxStacks: 3,
+    tags: ['offense', 'rage'],
+    apply: (s) => {
+      s.damage *= 1.45;
+      s.maxHp = Math.max(20, s.maxHp - 15);
+      s.hp = Math.min(s.hp, s.maxHp);
+    },
+  },
 ] as const;
 
 export const UPGRADE_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(

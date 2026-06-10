@@ -27,7 +27,7 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(VIEW.width / 2, 156, 'Eine Runde noch …', {
+      .text(VIEW.width / 2, 156, 'Just one more run …', {
         fontFamily: 'system-ui',
         fontSize: '16px',
         color: '#46e8a0',
