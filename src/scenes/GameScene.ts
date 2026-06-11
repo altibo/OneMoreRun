@@ -17,6 +17,12 @@ import { createInitialStats } from '../systems/createStats';
 import { HUD } from '../ui/HUD';
 import type { PlayerStats, RunResult } from '../types';
 
+interface BossBomb {
+  sprite: Phaser.Physics.Arcade.Image;
+  fuseLeftMs: number;
+  pulse?: Phaser.GameObjects.Arc;
+}
+
 export class GameScene extends Phaser.Scene {
   private stats!: PlayerStats;
   private rng!: Phaser.Math.RandomDataGenerator;
@@ -33,6 +39,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: HUD;
 
   private startTime = 0;
+  private elapsedRunMs = 0;
   private kills = 0;
   private coins = 0;
   private bossWarned = false;
@@ -40,6 +47,8 @@ export class GameScene extends Phaser.Scene {
   private bossDefeated = false;
   private paused = false;
   private ended = false;
+  private bossBombTimer: number = BOSS.bombIntervalMs;
+  private bossBombs: BossBomb[] = [];
 
   constructor() {
     super('Game');
@@ -89,7 +98,7 @@ export class GameScene extends Phaser.Scene {
       projectiles: this.projectiles,
       pickups: this.pickups,
       leveling: this.leveling,
-      spawnPickup: (x, y, kind, value) => this.spawnPickup(x, y, kind, value),
+      spawnPickup: (x, y, kind, value, tint) => this.spawnPickup(x, y, kind, value, tint),
       floatingText: (x, y, text, color) => this.floatingText(x, y, text, color),
       burst: (x, y, color, count) => this.burst(x, y, color, count),
       addKill: (enemy) => this.onKill(enemy),
@@ -111,7 +120,8 @@ export class GameScene extends Phaser.Scene {
     // Run-Start auf den ersten Frame setzen (Scene-Clock ist in create() noch 0).
     if (this.startTime < 0) this.startTime = time;
 
-    const runTimeMs = time - this.startTime;
+    this.elapsedRunMs += delta;
+    const runTimeMs = this.elapsedRunMs;
     const runTimeSec = runTimeMs / 1000;
 
     this.player.move(this.input2.getDirection());
@@ -143,8 +153,13 @@ export class GameScene extends Phaser.Scene {
     this.spawner.update(delta, runTimeSec);
     this.combat.update(delta, time);
     this.handleBoss(runTimeSec);
+    this.updateBossBombs(delta);
 
-    this.hud.update(this.stats, this.leveling.level, this.leveling.getProgress(), this.coins, runTimeMs);
+    const remainingMs = Math.max(0, RUN.targetSessionSec * 1000 - runTimeMs);
+    this.hud.update(this.stats, this.leveling.level, this.leveling.getProgress(), this.coins, remainingMs);
+    if (!this.bossDefeated && runTimeSec >= RUN.targetSessionSec) {
+      this.endRun(false, 'time');
+    }
   }
 
   // --- Boss ---------------------------------------------------------------
@@ -159,6 +174,7 @@ export class GameScene extends Phaser.Scene {
       this.bossSpawned = true;
       const boss = this.spawner.spawnBoss(runTimeSec);
       if (boss) {
+        this.bossBombTimer = 900;
         AudioManager.play('boss');
         EventBus.emit(GameEvents.BossSpawned, {});
         this.hud.setBossIndicator('BOSS');
@@ -257,8 +273,12 @@ export class GameScene extends Phaser.Scene {
     this.scene.launch('Pause', {
       stats: this.stats,
       level: this.leveling.level,
-      build: this.upgrades.getBuild(),
+      build: this.upgrades.getBuildDetails(),
       onResume: () => this.resumeFromUpgrade(),
+      onQuit: () => {
+        this.scene.stop('Pause');
+        this.endRun(false, 'quit');
+      },
     });
   }
 
@@ -290,12 +310,12 @@ export class GameScene extends Phaser.Scene {
     this.coins += amount;
   }
 
-  private endRun(victory: boolean): void {
+  private endRun(victory: boolean, reason: 'death' | 'time' | 'quit' = 'death'): void {
     if (this.ended) return;
     this.ended = true;
     this.physics.pause();
 
-    const timeMs = this.time.now - this.startTime;
+    const timeMs = this.elapsedRunMs;
     const result: RunResult = {
       timeMs,
       kills: this.kills,
@@ -308,9 +328,9 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.persistRun(result);
-    AudioManager.play(victory ? 'rare' : 'hurt');
+    AudioManager.play(victory ? 'rare' : reason === 'time' ? 'boss' : 'hurt');
     this.cameras.main.fade(600, 5, 6, 10);
-    this.time.delayedCall(650, () => this.scene.start('End', { result, victory }));
+    this.time.delayedCall(650, () => this.scene.start('End', { result, victory, reason }));
   }
 
   private persistRun(result: RunResult): void {
@@ -343,9 +363,9 @@ export class GameScene extends Phaser.Scene {
     return best;
   }
 
-  private spawnPickup(x: number, y: number, kind: PickupKind, value: number): void {
+  private spawnPickup(x: number, y: number, kind: PickupKind, value: number, tint?: number): void {
     const pickup = this.pickups.get() as Pickup | null;
-    if (pickup) pickup.spawn(x, y, kind, value);
+    if (pickup) pickup.spawn(x, y, kind, value, tint);
   }
 
   private floatingText(x: number, y: number, text: string, color: number): void {
@@ -373,7 +393,8 @@ export class GameScene extends Phaser.Scene {
         .image(x, y, 'spark')
         .setTint(color)
         .setDepth(48)
-        .setScale(Phaser.Math.FloatBetween(0.4, 0.9));
+        .setScale(Phaser.Math.FloatBetween(0.4, 0.9))
+        .setBlendMode(Phaser.BlendModes.ADD);
       const angle = Math.random() * Math.PI * 2;
       const dist = Phaser.Math.Between(20, 70);
       this.tweens.add({
@@ -387,6 +408,88 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => spark.destroy(),
       });
     }
+  }
+
+  private updateBossBombs(deltaMs: number): void {
+    const boss = this.findBoss();
+    if (boss) {
+      this.bossBombTimer -= deltaMs;
+      if (this.bossBombTimer <= 0) {
+        this.bossBombTimer = BOSS.bombIntervalMs;
+        this.throwBossBomb(boss);
+      }
+    }
+
+    for (let i = this.bossBombs.length - 1; i >= 0; i--) {
+      const bomb = this.bossBombs[i];
+      bomb.fuseLeftMs -= deltaMs;
+      const progress = Phaser.Math.Clamp(1 - bomb.fuseLeftMs / BOSS.bombFuseMs, 0, 1);
+      bomb.sprite.setScale(0.65 + progress * 0.55);
+      bomb.sprite.setAlpha(0.85 + Math.sin(this.time.now / 65) * 0.15);
+      bomb.pulse?.setPosition(bomb.sprite.x, bomb.sprite.y).setScale(0.8 + progress * 1.4);
+      bomb.pulse?.setAlpha(0.35 * (1 - progress) + 0.1);
+      if (bomb.fuseLeftMs <= 0) {
+        this.explodeBossBomb(bomb);
+        this.bossBombs.splice(i, 1);
+      }
+    }
+  }
+
+  private throwBossBomb(boss: Enemy): void {
+    const bomb = this.physics.add.image(boss.x, boss.y, 'gem');
+    bomb.setTint(COLORS.boss).setDepth(44).setBlendMode(Phaser.BlendModes.ADD);
+    bomb.setDisplaySize(BOSS.bombRadius * 2, BOSS.bombRadius * 2);
+    const body = bomb.body as Phaser.Physics.Arcade.Body;
+    body.setCircle(32);
+    const angle = Math.atan2(this.player.y - boss.y, this.player.x - boss.x);
+    body.setVelocity(Math.cos(angle) * BOSS.bombSpeed, Math.sin(angle) * BOSS.bombSpeed);
+    const pulse = this.add
+      .circle(boss.x, boss.y, BOSS.bombExplosionRadius * 0.35, COLORS.boss, 0.16)
+      .setStrokeStyle(2, COLORS.boss, 0.55)
+      .setDepth(43)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.bossBombs.push({ sprite: bomb, fuseLeftMs: BOSS.bombFuseMs, pulse });
+  }
+
+  private explodeBossBomb(bomb: BossBomb): void {
+    const x = bomb.sprite.x;
+    const y = bomb.sprite.y;
+    bomb.pulse?.destroy();
+    bomb.sprite.destroy();
+    this.burst(x, y, COLORS.boss, 24);
+    this.addExplosionRing(x, y, COLORS.boss, BOSS.bombExplosionRadius);
+    AudioManager.play('explosion');
+    const dx = this.player.x - x;
+    const dy = this.player.y - y;
+    if (dx * dx + dy * dy <= BOSS.bombExplosionRadius * BOSS.bombExplosionRadius) {
+      this.player.takeDamage(BOSS.bombExplosionDamage, this.time.now);
+    }
+  }
+
+  private addExplosionRing(x: number, y: number, color: number, radius: number): void {
+    const ring = this.add
+      .circle(x, y, radius * 0.2, color, 0.16)
+      .setStrokeStyle(4, color, 0.85)
+      .setDepth(47)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({
+      targets: ring,
+      radius,
+      alpha: 0,
+      duration: 320,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  private findBoss(): Enemy | null {
+    let boss: Enemy | null = null;
+    this.enemies.children.iterate((obj) => {
+      const enemy = obj as Enemy;
+      if (enemy.active && enemy.isBoss) boss = enemy;
+      return !boss;
+    });
+    return boss;
   }
 
   private drawArena(): void {
@@ -403,6 +506,7 @@ export class GameScene extends Phaser.Scene {
 
   private resetState(): void {
     this.startTime = -1;
+    this.elapsedRunMs = 0;
     this.kills = 0;
     this.coins = 0;
     this.bossWarned = false;
@@ -410,5 +514,7 @@ export class GameScene extends Phaser.Scene {
     this.bossDefeated = false;
     this.paused = false;
     this.ended = false;
+    this.bossBombTimer = BOSS.bombIntervalMs;
+    this.bossBombs = [];
   }
 }

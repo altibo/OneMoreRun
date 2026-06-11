@@ -35,6 +35,7 @@ export interface PlayerStats {
   spikeShield: boolean;
   slow: boolean;
   berserk: boolean;
+  freezeNova: boolean;
 
   // Synergy amplifiers
   poisonDpsMult: number;
@@ -42,10 +43,14 @@ export interface PlayerStats {
   explosionDamageMult: number;
   fireAuraDpsMult: number;
   chainJumpsBonus: number;
+  chainRangeBonus: number;
   poisonTrailDpsMult: number;
   spikeDpsMult: number;
   slowMult: number;
   berserkMult: number;
+  freezeNovaChance: number;
+  freezeNovaRadiusBonus: number;
+  freezeNovaDurationBonusMs: number;
 
   // Meta
   xpBonus: number; // Multiplikator, 1 = normal

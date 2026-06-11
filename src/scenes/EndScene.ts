@@ -9,6 +9,7 @@ import type { RunResult } from '../types';
 interface EndData {
   result: RunResult;
   victory: boolean;
+  reason?: 'death' | 'time' | 'quit';
 }
 
 /** Clear outcome screen: VICTORY when the boss is beaten, GAME OVER on death. */
@@ -19,6 +20,14 @@ export class EndScene extends Phaser.Scene {
 
   create(data: EndData): void {
     const { result, victory } = data;
+    const title = victory ? 'CLEARED!' : data.reason === 'time' ? 'TIME OVER' : 'FAILED';
+    const subtitle = victory
+      ? 'You defeated the boss in time!'
+      : data.reason === 'time'
+        ? 'The boss was not defeated within 4 minutes.'
+        : data.reason === 'quit'
+          ? 'Run ended.'
+          : 'You did not make it this time.';
     this.cameras.main.setBackgroundColor(COLORS.background);
     if (!victory) this.cameras.main.flash(400, 90, 0, 0);
 
@@ -26,7 +35,7 @@ export class EndScene extends Phaser.Scene {
 
     const cx = VIEW.width / 2;
     this.add
-      .text(cx, 56, victory ? 'VICTORY!' : 'YOU DIED', {
+      .text(cx, 56, title, {
         fontFamily: 'system-ui',
         fontSize: '52px',
         color: victory ? '#ffd166' : '#ff4b5c',
@@ -34,7 +43,7 @@ export class EndScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.add
-      .text(cx, 98, victory ? 'You defeated the boss!' : "You didn't make it this time.", {
+      .text(cx, 98, subtitle, {
         fontFamily: 'system-ui',
         fontSize: '16px',
         color: victory ? '#9fb0c0' : '#ff8a93',

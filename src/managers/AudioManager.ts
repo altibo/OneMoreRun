@@ -5,6 +5,7 @@ type SoundKey =
   | 'shoot'
   | 'hit'
   | 'coin'
+  | 'xp'
   | 'explosion'
   | 'levelup'
   | 'boss'
@@ -31,6 +32,7 @@ class AudioManagerImpl {
     this.sounds.shoot = this.tone({ freq: 660, dur: 0.06, type: 'square', vol: 0.18, decay: 0.04 });
     this.sounds.hit = this.tone({ freq: 220, dur: 0.05, type: 'square', vol: 0.25, decay: 0.04 });
     this.sounds.coin = this.tone({ freq: 880, dur: 0.09, type: 'sine', vol: 0.25, slideTo: 1320 });
+    this.sounds.xp = this.tone({ freq: 1180, dur: 0.07, type: 'sine', vol: 0.18, slideTo: 1720 });
     this.sounds.explosion = this.noise({ dur: 0.25, vol: 0.3, decay: 0.2 });
     this.sounds.levelup = this.arpeggio([523, 659, 784, 1046], 0.08, 0.28);
     this.sounds.boss = this.tone({ freq: 110, dur: 0.6, type: 'sawtooth', vol: 0.35, slideTo: 70 });

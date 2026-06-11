@@ -25,6 +25,9 @@ export const COLORS = {
   boss: 0xff3b7b,
   projectile: 0xffe066,
   xp: 0x4bd0ff,
+  xpRare: 0x46e8a0,
+  xpEpic: 0xb86bff,
+  xpBoss: 0xff3bcb,
   coin: 0xffd166,
   shield: 0x6ad0ff,
   fire: 0xff7b3b,
@@ -41,7 +44,7 @@ export const PLAYER_BASE = {
   radius: 14,
   invulnMsOnHit: 600,
   pickupRange: 90,
-  magnetSpeed: 420,
+  magnetSpeed: 540,
 } as const;
 
 export const WEAPON_BASE = {
@@ -74,11 +77,19 @@ export const SPAWN = {
 } as const;
 
 export const BOSS = {
-  spawnAtSec: 150,
+  spawnAtSec: 120,
   warningSec: 5,
+  bombIntervalMs: 2200,
+  bombFuseMs: 2000,
+  bombSpeed: 170,
+  bombRadius: 13,
+  bombExplosionRadius: 96,
+  bombExplosionDamage: 34,
 } as const;
 
 export const EFFECTS = {
+  xpOrbMinCount: 3,
+  xpOrbMaxCount: 24,
   poisonDps: 8,
   poisonDurationMs: 2500,
   explosionRadius: 70,
@@ -88,7 +99,14 @@ export const EFFECTS = {
   fireAuraTickMs: 250,
   chainJumps: 2,
   chainRange: 240,
+  chainRangePerStack: 60,
   chainDamageFactor: 0.6,
+  freezeNovaChance: 0.05,
+  freezeNovaChancePerStack: 0.025,
+  freezeNovaRadius: 130,
+  freezeNovaRadiusPerStack: 24,
+  freezeNovaDurationMs: 1200,
+  freezeNovaDurationPerStackMs: 180,
   lifestealPerKill: 2,
   shieldCooldownMs: 9000,
   armorReductionPerStack: 0.06,
@@ -114,5 +132,5 @@ export const EFFECTS = {
 export const RUN = {
   coinPerKill: 1,
   coinPerBoss: 50,
-  targetSessionSec: 300,
+  targetSessionSec: 240,
 } as const;

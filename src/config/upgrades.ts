@@ -1,3 +1,4 @@
+import { EFFECTS } from './balance';
 import type { PlayerStats } from '../types';
 
 export type Rarity = 'common' | 'rare' | 'epic';
@@ -203,13 +204,14 @@ export const UPGRADES: readonly UpgradeDef[] = [
   {
     id: 'chain',
     name: 'Chain Lightning',
-    desc: 'Hits arc to nearby foes',
+    desc: `Hits arc +1 jump and +${EFFECTS.chainRangePerStack}px chain range`,
     rarity: 'epic',
-    maxStacks: 3,
+    maxStacks: 5,
     tags: ['lightning'],
     apply: (s) => {
       s.chain = true;
       s.chainJumpsBonus += 1;
+      s.chainRangeBonus += EFFECTS.chainRangePerStack;
     },
   },
   {
@@ -239,13 +241,43 @@ export const UPGRADES: readonly UpgradeDef[] = [
   {
     id: 'frostbite',
     name: 'Frostbite',
-    desc: 'Hits chill and slow enemies',
+    desc: 'Hits chill and slow enemies harder each stack',
     rarity: 'epic',
     maxStacks: 3,
     tags: ['frost'],
     apply: (s) => {
       s.slow = true;
       s.slowMult += 0.5;
+    },
+  },
+  {
+    id: 'cryo_nova',
+    name: 'Cryo Nova',
+    desc: '5% chance on hit to freeze enemies around the impact',
+    rarity: 'epic',
+    maxStacks: 4,
+    tags: ['frost'],
+    apply: (s) => {
+      const alreadyOwned = s.freezeNova;
+      s.freezeNova = true;
+      s.freezeNovaChance += alreadyOwned ? EFFECTS.freezeNovaChancePerStack : EFFECTS.freezeNovaChance;
+      if (alreadyOwned) {
+        s.freezeNovaRadiusBonus += EFFECTS.freezeNovaRadiusPerStack;
+        s.freezeNovaDurationBonusMs += EFFECTS.freezeNovaDurationPerStackMs;
+      }
+    },
+  },
+  {
+    id: 'storm_focus',
+    name: 'Storm Focus',
+    desc: '+120px chain range and +20% lightning damage',
+    rarity: 'rare',
+    maxStacks: 4,
+    tags: ['lightning', 'offense'],
+    apply: (s) => {
+      s.chain = true;
+      s.chainRangeBonus += 120;
+      s.damage *= 1.2;
     },
   },
   {

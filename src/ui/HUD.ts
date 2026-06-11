@@ -63,7 +63,7 @@ export class HUD {
 
     // Timer & coins, top-right.
     this.timerText = scene.add
-      .text(VIEW.width - pad, pad + 4, '0:00', {
+      .text(VIEW.width - pad, pad + 4, '4:00', {
         fontFamily: 'system-ui',
         fontSize: '22px',
         color: '#ffffff',
@@ -144,6 +144,7 @@ export class HUD {
     this.levelText.setText(`LVL ${level}`);
     this.coinText.setText(`◆ ${coins}`);
     this.timerText.setText(this.formatTime(timeMs));
+    this.timerText.setColor(timeMs <= 30000 ? '#ff4b5c' : '#ffffff');
   }
 
   setBuild(build: string[]): void {

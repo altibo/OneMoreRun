@@ -31,6 +31,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setActive(true).setVisible(true);
     this.setDepth(45);
     this.setPosition(opts.x, opts.y);
+    this.setBlendMode(Phaser.BlendModes.ADD);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.enable = true;

@@ -100,7 +100,7 @@ export const BOSS_DEF: BossDef = {
   baseHp: 2600,
   speed: 64,
   radius: 46,
-  contactDamage: 26,
+  contactDamage: 38,
   xp: 60,
   color: COLORS.boss,
 };

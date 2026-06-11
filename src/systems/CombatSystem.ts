@@ -17,7 +17,7 @@ export interface CombatContext {
   projectiles: Phaser.Physics.Arcade.Group;
   pickups: Phaser.Physics.Arcade.Group;
   leveling: LevelingSystem;
-  spawnPickup: (x: number, y: number, kind: PickupKind, value: number) => void;
+  spawnPickup: (x: number, y: number, kind: PickupKind, value: number, tint?: number) => void;
   floatingText: (x: number, y: number, text: string, color: number) => void;
   burst: (x: number, y: number, color: number, count?: number) => void;
   addKill: (enemy: Enemy) => void;
@@ -36,10 +36,13 @@ export class CombatSystem {
   private spikeContainer?: Phaser.GameObjects.Container;
   private fireAuraVisual?: Phaser.GameObjects.Arc;
   private trailPuddles: {
-    sprite: Phaser.GameObjects.Image;
+    cloud: Phaser.GameObjects.Container;
+    x: number;
+    y: number;
     expireAt: number;
     nextTick: number;
   }[] = [];
+  private frozenCrystals = new Map<Enemy, Phaser.GameObjects.Container>();
 
   constructor(private ctx: CombatContext) {}
 
@@ -57,6 +60,7 @@ export class CombatSystem {
     this.tickShield(deltaMs, time);
     this.tickPoisonTrail(deltaMs, time);
     this.tickSpikes(deltaMs, time);
+    this.tickFrozenCrystals(time);
   }
 
   // --- Overlap-Handler ----------------------------------------------------
@@ -93,6 +97,7 @@ export class CombatSystem {
     if (!pickup.active) return;
     if (pickup.kind === 'xp') {
       this.ctx.leveling.addXp(pickup.value);
+      AudioManager.play('xp');
       EventBus.emit(GameEvents.XpCollected, { amount: pickup.value });
     } else {
       this.ctx.addCoins(pickup.value);
@@ -120,8 +125,11 @@ export class CombatSystem {
       enemy.applySlow(factor, EFFECTS.slowDurationMs, this.ctx.scene.time.now);
       enemy.setTint(COLORS.frost);
       this.ctx.scene.time.delayedCall(140, () => {
-        if (enemy.active) enemy.restoreTint();
+        if (enemy.active && !enemy.isFrozen(this.ctx.scene.time.now)) enemy.restoreTint();
       });
+    }
+    if (this.ctx.stats.freezeNova && Math.random() < this.ctx.stats.freezeNovaChance) {
+      this.freezeNova(enemy.x, enemy.y);
     }
     if (dead) this.killEnemy(enemy);
   }
@@ -154,7 +162,7 @@ export class CombatSystem {
     if (!enemy.active) return;
     const wasBoss = enemy.isBoss;
     this.ctx.burst(enemy.x, enemy.y, wasBoss ? COLORS.boss : COLORS.enemy, wasBoss ? 30 : 8);
-    this.ctx.spawnPickup(enemy.x, enemy.y, 'xp', enemy.xp);
+    this.spawnXpOrbs(enemy);
 
     if (wasBoss) {
       for (let i = 0; i < 12; i++) {
@@ -168,8 +176,41 @@ export class CombatSystem {
     if (this.ctx.stats.lifestealPerKill > 0) {
       this.ctx.player.heal(this.ctx.stats.lifestealPerKill);
     }
+    this.frozenCrystals.get(enemy)?.destroy();
+    this.frozenCrystals.delete(enemy);
     this.ctx.addKill(enemy);
     enemy.kill();
+  }
+
+  private spawnXpOrbs(enemy: Enemy): void {
+    const color = enemy.isBoss
+      ? COLORS.xpBoss
+      : enemy.xp >= 7
+        ? COLORS.xpEpic
+        : enemy.xp >= 4
+          ? COLORS.xpRare
+          : enemy.xp >= 2
+            ? COLORS.coin
+            : COLORS.xp;
+    const orbCount = Phaser.Math.Clamp(
+      enemy.isBoss ? Math.ceil(enemy.xp / 3) : EFFECTS.xpOrbMinCount + Math.floor(enemy.xp / 2),
+      EFFECTS.xpOrbMinCount,
+      EFFECTS.xpOrbMaxCount,
+    );
+    const value = enemy.xp / orbCount;
+    const lineAngle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+    const spacing = enemy.isBoss ? 11 : 8;
+    for (let i = 0; i < orbCount; i++) {
+      const sideOffset = (i - (orbCount - 1) / 2) * spacing;
+      const depthOffset = Phaser.Math.Between(-5, 5);
+      this.ctx.spawnPickup(
+        enemy.x + Math.cos(lineAngle) * sideOffset + Math.cos(lineAngle + Math.PI / 2) * depthOffset,
+        enemy.y + Math.sin(lineAngle) * sideOffset + Math.sin(lineAngle + Math.PI / 2) * depthOffset,
+        'xp',
+        value,
+        color,
+      );
+    }
   }
 
   // --- Effekte ------------------------------------------------------------
@@ -186,11 +227,12 @@ export class CombatSystem {
 
   private chain(from: Enemy, baseDamage: number): void {
     const jumps = EFFECTS.chainJumps + this.ctx.stats.chainJumpsBonus;
+    const range = EFFECTS.chainRange + this.ctx.stats.chainRangeBonus;
     const dmg = baseDamage * EFFECTS.chainDamageFactor;
     let source = from;
     const hit = new Set<Enemy>([from]);
     for (let j = 0; j < jumps; j++) {
-      const next = this.nearestEnemyExcluding(source.x, source.y, EFFECTS.chainRange, hit);
+      const next = this.nearestEnemyExcluding(source.x, source.y, range, hit);
       if (!next) break;
       this.drawBolt(source.x, source.y, next.x, next.y);
       if (next.damage(dmg, false)) this.killEnemy(next);
@@ -265,7 +307,7 @@ export class CombatSystem {
     for (let i = this.trailPuddles.length - 1; i >= 0; i--) {
       const p = this.trailPuddles[i];
       if (time >= p.expireAt) {
-        p.sprite.destroy();
+        p.cloud.destroy();
         this.trailPuddles.splice(i, 1);
         continue;
       }
@@ -276,7 +318,7 @@ export class CombatSystem {
             this.ctx.stats.poisonTrailDpsMult *
             EFFECTS.poisonTrailTickMs) /
           1000;
-        this.forEachEnemyInRange(p.sprite.x, p.sprite.y, EFFECTS.poisonTrailRadius, (enemy) => {
+        this.forEachEnemyInRange(p.x, p.y, EFFECTS.poisonTrailRadius, (enemy) => {
           if (enemy.damage(dmg, false)) this.killEnemy(enemy);
         });
       }
@@ -285,22 +327,110 @@ export class CombatSystem {
 
   private dropPoisonPuddle(time: number): void {
     const p = this.ctx.player;
-    const sprite = this.ctx.scene.add
-      .image(p.x, p.y, TEX.disc)
-      .setTint(COLORS.poison)
-      .setAlpha(0.32)
-      .setDepth(15);
-    sprite.setDisplaySize(EFFECTS.poisonTrailRadius * 2, EFFECTS.poisonTrailRadius * 2);
+    const cloud = this.ctx.scene.add.container(p.x, p.y).setDepth(15);
+    const puffCount = 7;
+    for (let i = 0; i < puffCount; i++) {
+      const angle = (i / puffCount) * Math.PI * 2 + Phaser.Math.FloatBetween(-0.35, 0.35);
+      const dist = Phaser.Math.Between(0, EFFECTS.poisonTrailRadius * 0.55);
+      const puff = this.ctx.scene.add
+        .image(Math.cos(angle) * dist, Math.sin(angle) * dist, TEX.disc)
+        .setTint(COLORS.poison)
+        .setAlpha(0.16)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      const size = Phaser.Math.Between(18, 34);
+      puff.setDisplaySize(size, size);
+      cloud.add(puff);
+      this.ctx.scene.tweens.add({
+        targets: puff,
+        x: puff.x + Math.cos(angle) * Phaser.Math.Between(8, 18),
+        y: puff.y + Math.sin(angle) * Phaser.Math.Between(8, 18),
+        alpha: 0,
+        scale: 1.45,
+        duration: EFFECTS.poisonTrailDurationMs,
+        ease: 'Sine.easeOut',
+      });
+    }
     this.ctx.scene.tweens.add({
-      targets: sprite,
-      alpha: 0.1,
+      targets: cloud,
+      alpha: 0,
       duration: EFFECTS.poisonTrailDurationMs,
     });
     this.trailPuddles.push({
-      sprite,
+      cloud,
+      x: p.x,
+      y: p.y,
       expireAt: time + EFFECTS.poisonTrailDurationMs,
       nextTick: time + EFFECTS.poisonTrailTickMs,
     });
+  }
+
+  private freezeNova(x: number, y: number): void {
+    const radius = EFFECTS.freezeNovaRadius + this.ctx.stats.freezeNovaRadiusBonus;
+    const duration = EFFECTS.freezeNovaDurationMs + this.ctx.stats.freezeNovaDurationBonusMs;
+    this.ctx.burst(x, y, COLORS.frost, 14);
+    this.drawFreezeRing(x, y, radius);
+    this.forEachEnemyInRange(x, y, radius, (enemy) => {
+      enemy.applyFreeze(duration, this.ctx.scene.time.now);
+      enemy.setTint(COLORS.frost);
+      this.showIceCrystals(enemy, duration);
+    });
+  }
+
+  private drawFreezeRing(x: number, y: number, radius: number): void {
+    const ring = this.ctx.scene.add
+      .circle(x, y, 10, COLORS.frost, 0.1)
+      .setStrokeStyle(3, COLORS.frost, 0.8)
+      .setDepth(47)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.ctx.scene.tweens.add({
+      targets: ring,
+      radius,
+      alpha: 0,
+      duration: 260,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
+  }
+
+  private showIceCrystals(enemy: Enemy, durationMs: number): void {
+    this.frozenCrystals.get(enemy)?.destroy();
+    const c = this.ctx.scene.add.container(enemy.x, enemy.y).setDepth(63);
+    const count = enemy.isBoss ? 9 : 5;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      const shard = this.ctx.scene.add
+        .image(Math.cos(a) * 18, Math.sin(a) * 18, TEX.spike)
+        .setTint(COLORS.frost)
+        .setAlpha(0.92)
+        .setBlendMode(Phaser.BlendModes.ADD);
+      shard.setDisplaySize(14, 24);
+      shard.rotation = a;
+      c.add(shard);
+    }
+    this.frozenCrystals.set(enemy, c);
+    this.ctx.scene.tweens.add({
+      targets: c,
+      alpha: 0,
+      delay: Math.max(0, durationMs - 260),
+      duration: 260,
+      onComplete: () => {
+        c.destroy();
+        if (this.frozenCrystals.get(enemy) === c) this.frozenCrystals.delete(enemy);
+        if (enemy.active) enemy.restoreTint();
+      },
+    });
+  }
+
+  private tickFrozenCrystals(time: number): void {
+    for (const [enemy, crystals] of this.frozenCrystals) {
+      if (!enemy.active || !enemy.isFrozen(time)) {
+        crystals.destroy();
+        this.frozenCrystals.delete(enemy);
+        if (enemy.active) enemy.restoreTint();
+        continue;
+      }
+      crystals.setPosition(enemy.x, enemy.y);
+    }
   }
 
   /** Rotierender Stachelschild: trifft alle Gegner im Radius periodisch. */

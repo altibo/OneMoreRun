@@ -8,6 +8,7 @@ export interface PauseData {
   level: number;
   build: string[];
   onResume: () => void;
+  onQuit: () => void;
 }
 
 /**
@@ -16,6 +17,7 @@ export interface PauseData {
  */
 export class PauseScene extends Phaser.Scene {
   private onResume: () => void = () => {};
+  private onQuit: () => void = () => {};
 
   constructor() {
     super('Pause');
@@ -23,6 +25,7 @@ export class PauseScene extends Phaser.Scene {
 
   create(data: PauseData): void {
     this.onResume = data.onResume;
+    this.onQuit = data.onQuit;
     const cx = VIEW.width / 2;
 
     this.add
@@ -51,11 +54,19 @@ export class PauseScene extends Phaser.Scene {
 
     new Button(
       this,
-      cx,
-      VIEW.height - 60,
+      cx - 145,
+      VIEW.height - 54,
       'RESUME',
-      { width: 260, height: 56, fontSize: 24 },
+      { width: 250, height: 54, fontSize: 22 },
       () => this.resume(),
+    );
+    new Button(
+      this,
+      cx + 145,
+      VIEW.height - 54,
+      'QUIT',
+      { width: 250, height: 54, fontSize: 22, fill: 0x4a1822, textColor: '#ffffff' },
+      () => this.quit(),
     );
   }
 
@@ -101,22 +112,37 @@ export class PauseScene extends Phaser.Scene {
   }
 
   private renderBuild(build: string[], cx: number): void {
-    if (build.length === 0) return;
+    const titleY = 302;
     this.add
-      .text(cx, VIEW.height - 160, 'BUILD', {
+      .text(cx, titleY, 'BUILD', {
         fontFamily: 'system-ui',
         fontSize: '14px',
         color: '#6a7b8c',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
+    if (build.length === 0) {
+      this.add
+        .text(cx, titleY + 28, 'No upgrades yet.', {
+          fontFamily: 'system-ui',
+          fontSize: '14px',
+          color: '#9fb0c0',
+        })
+        .setOrigin(0.5, 0);
+      return;
+    }
+    const visible = build.slice(0, 7);
+    const extra = build.length - visible.length;
+    const lines = visible.map((entry) => `- ${entry}`);
+    if (extra > 0) lines.push(`- +${extra} more effects`);
     this.add
-      .text(cx, VIEW.height - 134, build.join('  ·  '), {
+      .text(cx, titleY + 26, lines.join('\n'), {
         fontFamily: 'system-ui',
         fontSize: '13px',
         color: '#c9d4df',
-        align: 'center',
-        wordWrap: { width: VIEW.width - 100 },
+        align: 'left',
+        lineSpacing: 5,
+        wordWrap: { width: VIEW.width - 140 },
       })
       .setOrigin(0.5, 0);
   }
@@ -124,5 +150,9 @@ export class PauseScene extends Phaser.Scene {
   private resume(): void {
     this.onResume();
     this.scene.stop();
+  }
+
+  private quit(): void {
+    this.onQuit();
   }
 }

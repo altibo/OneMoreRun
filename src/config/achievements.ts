@@ -50,8 +50,8 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   {
     id: 'survivor',
     name: 'Survivor',
-    desc: 'Survive 5 minutes in a single run.',
-    check: (run) => run.timeMs >= 5 * 60 * 1000,
+    desc: 'Survive 4 minutes in a single run.',
+    check: (run) => run.timeMs >= 4 * 60 * 1000,
   },
   {
     id: 'play_100',
